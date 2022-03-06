@@ -6,6 +6,8 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 
+from PIL import Image, ImageDraw
+
 from ..utils.action_space import MultiAgentActionSpace
 from ..utils.draw import draw_grid, fill_cell, draw_border
 from ..utils.observation_space import MultiAgentObservationSpace
@@ -18,7 +20,7 @@ class PongDuel(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array']}
 
-    def __init__(self, step_cost=0, reward=1, max_rounds=10):
+    def __init__(self, step_cost=0, reward=1, max_rounds=10, metadata={}):
         self._grid_shape = (40, 30)
         self.n_agents = 2
         self.reward = reward
@@ -40,6 +42,7 @@ class PongDuel(gym.Env):
 
         self.curr_ball_dir = None
         self.viewer = None
+        self.metadata.update(metadata)
         self.seed()
 
     def get_action_meanings(self, agent_i=None):
@@ -149,6 +152,7 @@ class PongDuel(gym.Env):
         fill_cell(img, ball_cells[2], cell_size=CELL_SIZE, fill=BALL_TAIL_COLOR)
 
         img = draw_border(img, border_width=2, fill='gray')
+        img = self.__draw_score_board(img)
 
         img = np.asarray(img)
         if mode == 'rgb_array':
@@ -159,6 +163,18 @@ class PongDuel(gym.Env):
                 self.viewer = rendering.SimpleImageViewer()
             self.viewer.imshow(img)
             return self.viewer.isopen
+
+    def __draw_score_board(self, image, board_height=30):
+        im_width, im_height = image.size
+        new_im = Image.new("RGB", size=(im_width, im_height + board_height), color='#e1e4e8')
+        new_im.paste(image, (0, board_height))
+
+        p1, p2 = self._total_episode_reward
+        step, round = self._step_count, self.__rounds
+        banner = f"{p1:2d}" + f"{step} {round}".center(18) + f"{p2:2d}"
+
+        ImageDraw.Draw(new_im).text((10, board_height // 3), text=banner, fill='black', align='center')
+        return new_im
 
     def __update_agent_pos(self, agent_i, move):
 
@@ -257,7 +273,7 @@ class PongDuel(gym.Env):
         for i in range(self.n_agents):
             self._total_episode_reward[i] += rewards[i]
 
-        return self.get_agent_obs(), rewards, self._agent_dones, {'rounds': self.__rounds}
+        return self.get_agent_obs(), rewards, self._agent_dones, {'rounds': self.__rounds, 'rewards': self._total_episode_reward}
 
 
 CELL_SIZE = 5

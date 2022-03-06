@@ -5,7 +5,7 @@ from gym import error, logger
 from gym.utils import closer
 from gym.wrappers import Monitor as MO
 
-from ma_gym.wrappers.monitoring import stats_recorder
+from ma_gym.wrappers.monitoring import stats_recorder, video_recorder
 
 FILE_PREFIX = 'openaigym'
 MANIFEST_PREFIX = FILE_PREFIX + '.manifest'
@@ -16,6 +16,7 @@ class Monitor(MO):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.episode_id = 1
         self.n_agents = self.env.n_agents
 
     def _start(self, directory, video_callable=None, force=False, resume=False,
@@ -83,6 +84,25 @@ class Monitor(MO):
 
         if mode is not None:
             self._set_mode(mode)
+
+    def reset_video_recorder(self):
+        # Close any existing video recorder
+        if self.video_recorder:
+            self._close_video_recorder()
+
+        # Start recording the next video.
+        #
+        # TODO: calculate a more correct 'episode_id' upon merge
+        self.video_recorder = video_recorder.VideoRecorder(
+            env=self.env,
+            base_path=os.path.join(
+                self.directory,
+                f"{self.file_prefix}.video.{self.file_infix}.video{self.episode_id:06}",
+            ),
+            metadata={"episode_id": self.episode_id},
+            enabled=self._video_enabled(),
+        )
+        self.video_recorder.capture_frame()
 
 
 def detect_training_manifests(training_dir, files=None):
